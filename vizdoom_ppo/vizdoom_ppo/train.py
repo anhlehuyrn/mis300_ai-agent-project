@@ -4,8 +4,10 @@ import os
 import time
 from pathlib import Path
 
+import gymnasium as gym
 import numpy as np
 import torch
+from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_checker import check_env
@@ -15,7 +17,7 @@ from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution, scenarios_pa
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class ViZDoomEnv:
+class ViZDoomEnv(gym.Env):
     def __init__(self, scenario_path: Path, visible: bool = False):
         if not scenario_path.exists():
             raise FileNotFoundError(f"Scenario file not found at: {scenario_path}")
@@ -33,56 +35,60 @@ class ViZDoomEnv:
         self.game.set_screen_resolution(ScreenResolution.RES_640X480)
         self.game.init()
 
-        self.observation_space = np.array([480, 640])
-        self.action_space = [
+        self.action_map = [
             [1, 0, 0, 0],  # Move Forward
             [0, 1, 0, 0],  # Move Backward
             [0, 0, 1, 0],  # Turn Left
             [0, 0, 0, 1],  # Turn Right
         ]
-        
+        self.observation_space = spaces.Box(low=0, high=255, shape=(480, 640, 1), dtype=np.uint8)
+        self.action_space = spaces.Discrete(len(self.action_map))
+
         self.state = None
         self.last_health = 100
         self.last_ammo = 26
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
         self.game.new_episode()
         self.state = self.game.get_state().screen_buffer
-        return self.state
+        observation = np.expand_dims(self.state, axis=-1).astype(np.float32) / 255.0
+        info = {}
+        return observation, info
 
     def step(self, action_index):
-        action = self.action_space[action_index]
+        action = self.action_map[action_index]
         info = {}
         
         reward = self.game.make_action(action)
         
-        done = self.game.is_episode_finished()
-        if done:
-            observation = np.zeros(self.observation_space, dtype=np.uint8)
-            return observation, 0.0, True, info
+        terminated = self.game.is_episode_finished()
+        if terminated:
+            observation = np.zeros(self.observation_space.shape, dtype=np.float32)
+            return observation, 0.0, True, False, info
 
         state = self.game.get_state()
-        if state is None: # Handle case where state is None
-            observation = np.zeros(self.observation_space, dtype=np.uint8)
+        if state is None:
+            observation = np.zeros(self.observation_space.shape, dtype=np.float32)
             reward = 0.0
-            done = True
-            return observation, reward, done, info
+            terminated = True
+            return observation, reward, terminated, False, info
 
         observation = state.screen_buffer
+        observation = np.expand_dims(observation, axis=-1).astype(np.float32) / 255.0
 
-        # Custom reward shaping
         health = state.game_variables[0]
         ammo = state.game_variables[1]
 
-        reward += (health - self.last_health) * 0.1  # Reward for health pickup, penalty for damage
-        reward += (ammo - self.last_ammo) * 0.1  # Reward for ammo pickup
+        reward += (health - self.last_health) * 0.1
+        reward += (ammo - self.last_ammo) * 0.1
         
         self.last_health = health
         self.last_ammo = ammo
         
-        reward -= 0.01 # Time penalty
+        reward -= 0.01
 
-        return observation, reward, done, info
+        return observation, reward, terminated, False, info
 
     def close(self):
         self.game.close()
@@ -103,14 +109,14 @@ class TensorboardCallback(BaseCallback):
 def main():
     try:
         # Corrected path for the Docker container
-        scenario_path = Path("scenarios/basic.cfg")
+        scenario_path = Path(__file__).parent / "scenarios" / "basic.cfg"
         log_dir = "logs/"
         os.makedirs(log_dir, exist_ok=True)
         vec_normalize_path = os.path.join(log_dir, "vec_normalize.pkl")
 
         env = ViZDoomEnv(scenario_path)
         env = DummyVecEnv([lambda: env])
-        env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.)
+        env = VecNormalize(env, norm_obs=False, norm_reward=True, clip_obs=10.)
 
         model = PPO("CnnPolicy", env, verbose=1, tensorboard_log=log_dir)
         

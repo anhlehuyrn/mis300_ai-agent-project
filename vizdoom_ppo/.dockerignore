@@ -1,0 +1,38 @@
+# Ignore Python-specific files and directories
+__pycache__/
+*.pyc
+*.pyd
+*.egg-info/
+.Python
+.venv/
+venv/
+env/
+
+# Ignore editor/IDE specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ignore version control files
+.git/
+.gitignore
+
+# Ignore logs and temporary files
+*.log
+tmp/
+temp/
+
+# Ignore data directories or large files not needed in the image
+data/
+logs/
+models/
+output/
+
+# Ignore Docker-specific files (if they are in the build context root)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# macOS specific files
+.DS_Store
