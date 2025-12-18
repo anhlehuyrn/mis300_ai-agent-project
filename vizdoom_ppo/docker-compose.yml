@@ -1,0 +1,19 @@
+
+version: '3.8'
+services:
+  vizdoom_ppo:
+    build: .
+    # The following allows for display on the host, if you have an X server.
+    # You may need to adjust based on your OS.
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    # For GPU acceleration, if you have nvidia-docker installed
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
