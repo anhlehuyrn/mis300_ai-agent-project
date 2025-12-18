@@ -102,7 +102,8 @@ class TensorboardCallback(BaseCallback):
 
 def main():
     try:
-        scenario_path = Path("vizdoom_ppo/scenarios/basic.cfg")
+        # Corrected path for the Docker container
+        scenario_path = Path("scenarios/basic.cfg")
         log_dir = "logs/"
         os.makedirs(log_dir, exist_ok=True)
         vec_normalize_path = os.path.join(log_dir, "vec_normalize.pkl")

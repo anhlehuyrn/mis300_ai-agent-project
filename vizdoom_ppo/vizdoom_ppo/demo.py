@@ -68,7 +68,8 @@ class ViZDoomEnv:
 
 def main():
     try:
-        scenario_path = Path("vizdoom_ppo/scenarios/basic.cfg")
+        # Corrected path for the Docker container
+        scenario_path = Path("scenarios/basic.cfg")
         model_path = "vizdoom_ppo_model.zip"
         log_dir = "logs/"
         vec_normalize_path = os.path.join(log_dir, "vec_normalize.pkl")
